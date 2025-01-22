@@ -36,6 +36,235 @@ hepatitis_model = joblib.load('models/hepititisc_model.sav')
 liver_model = joblib.load('models/liver_model.sav')# Load the lung cancer prediction model
 lung_cancer_model = joblib.load('models/lung_cancer_model.sav')
 
+# Add explanatory text with improved styling - Moving this function to the top
+def add_chart_explanation(chart_type, metrics):
+    st.markdown("""<div style='background-color: #f0f2f6; padding: 1em; border-radius: 5px; margin-top: 0.5em;'>""", unsafe_allow_html=True)
+    
+    if chart_type == "gauge":
+        st.markdown("""
+        <h4 style='font-size: 18px; color: #1f77b4;'>Understanding the Risk Score:</h4>
+        <ul style='font-size: 16px; line-height: 1.5;'>
+            <li><span style='color: green; font-weight: bold;'>0-30: Low Risk</span></li>
+            <li><span style='color: #ffd700; font-weight: bold;'>30-70: Medium Risk</span></li>
+            <li><span style='color: salmon; font-weight: bold;'>70-100: High Risk</span></li>
+        </ul>
+        """, unsafe_allow_html=True)
+    elif chart_type == "bar":
+        st.markdown(f"""
+        <h4 style='font-size: 18px; color: #1f77b4;'>Understanding the Metrics:</h4>
+        <ul style='font-size: 16px; line-height: 1.5;'>
+            <li><span style='color: green; font-weight: bold;'>Green bars</span> indicate values within normal range</li>
+            <li>Values outside the normal range may require attention</li>
+            <li>Metrics shown: <span style='font-weight: bold;'>{', '.join(metrics)}</span></li>
+        </ul>
+        """, unsafe_allow_html=True)
+    elif chart_type == "pie":
+        st.markdown("""
+        <h4 style='font-size: 18px; color: #1f77b4;'>Understanding the Distribution:</h4>
+        <ul style='font-size: 16px; line-height: 1.5;'>
+            <li>Size of each slice shows relative importance</li>
+            <li>Click legend items to focus on specific factors</li>
+            <li>Hover over slices for detailed information</li>
+        </ul>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# Function to create gauge chart with adjusted text sizes
+def create_gauge_chart(value, title):
+    fig = go.Figure(go.Indicator(
+        mode = "gauge+number+delta",
+        value = value,
+        domain = {'x': [0, 1], 'y': [0, 1]},
+        title = {'text': title, 'font': {'size': 28, 'color': '#1f77b4', 'family': 'Arial, sans-serif'}},
+        delta = {'reference': 50, 'increasing': {'color': "red"}, 'decreasing': {'color': "green"}, 'font': {'size': 16}},
+        gauge = {
+            'axis': {
+                'range': [0, 100], 
+                'tickwidth': 1, 
+                'tickcolor': "darkblue",
+                'ticktext': ['Low Risk', 'Medium Risk', 'High Risk'],
+                'tickvals': [20, 50, 80],
+                'tickfont': {'size': 14}
+            },
+            'bar': {'color': "darkblue", 'thickness': 0.6},
+            'bgcolor': "white",
+            'borderwidth': 2,
+            'bordercolor': "gray",
+            'steps': [
+                {'range': [0, 30], 'color': "lightgreen", 'name': 'Low Risk'},
+                {'range': [30, 70], 'color': "yellow", 'name': 'Medium Risk'},
+                {'range': [70, 100], 'color': "salmon", 'name': 'High Risk'}
+            ],
+            'threshold': {
+                'line': {'color': "red", 'width': 4},
+                'thickness': 0.8,
+                'value': 80
+            }
+        }
+    ))
+    fig.add_annotation(
+        text=f"Risk Level: {'High' if value >= 70 else 'Medium' if value >= 30 else 'Low'}",
+        x=0.5,
+        y=0.25,
+        showarrow=False,
+        font=dict(size=20, color='darkblue', family='Arial, sans-serif')
+    )
+    fig.update_layout(
+        paper_bgcolor = "white",
+        height=450,  # Increased height
+        margin=dict(l=20, r=20, t=100, b=20),  # Increased top margin for title
+        font={'color': "darkblue", 'family': "Arial, sans-serif", 'size': 16}
+    )
+    return fig
+
+# Function to create pie chart with improved readability and text sizes
+def create_pie_chart(values, labels, title):
+    colors = ['rgb(31, 119, 180)', 'rgb(255, 127, 14)', 
+              'rgb(44, 160, 44)', 'rgb(214, 39, 40)']
+              
+    fig = go.Figure(data=[go.Pie(
+        labels=labels, 
+        values=values, 
+        hole=.4,
+        textinfo='label+percent',
+        textposition='outside',
+        textfont=dict(size=16, color='black', family='Arial, sans-serif'),
+        pull=[0.1]*len(values),
+        marker=dict(colors=colors),
+        hovertemplate="<b>%{label}</b><br>" +
+                      "Value: %{value}<br>" +
+                      "Percentage: %{percent}<br>" +
+                      "<extra></extra>",
+        direction='clockwise',
+        sort=False
+    )])
+    
+    fig.update_layout(
+        title=dict(
+            text=title,
+            x=0.5,
+            y=0.95,
+            xanchor='center',
+            yanchor='top',
+            font=dict(size=28, color='#1f77b4', family='Arial, sans-serif')
+        ),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=14, family='Arial, sans-serif')
+        ),
+        height=500,
+        margin=dict(l=50, r=50, t=100, b=100),  # Increased margins
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        annotations=[
+            dict(
+                text="Click legend items to filter",
+                x=0.5,
+                y=-0.3,
+                showarrow=False,
+                font=dict(size=14, family='Arial, sans-serif'),
+                xref="paper",
+                yref="paper"
+            )
+        ]
+    )
+    return fig
+
+# Function to create bar chart with improved text sizes
+def create_bar_chart(x_values, y_values, title, normal_ranges=None):
+    fig = go.Figure()
+    
+    # Add the main bar chart
+    fig.add_trace(go.Bar(
+        x=x_values, 
+        y=y_values,
+        text=y_values,
+        textposition='auto',
+        textfont=dict(size=14, family='Arial, sans-serif'),
+        marker_color='darkblue',
+        opacity=0.8,
+        name='Current Values',
+        hovertemplate="<b>%{x}</b><br>" +
+                      "Value: %{y:.2f}<br>" +
+                      "<extra></extra>"
+    ))
+    
+    # Add normal range indicators if provided
+    if normal_ranges:
+        for x, (min_val, max_val) in zip(x_values, normal_ranges):
+            fig.add_trace(go.Scatter(
+                x=[x, x],
+                y=[min_val, max_val],
+                mode='lines',
+                line=dict(color='green', width=3),
+                name=f'Normal Range ({min_val}-{max_val})',
+                showlegend=False
+            ))
+            fig.add_annotation(
+                x=x,
+                y=max_val,
+                text=f'Normal<br>Range',
+                showarrow=False,
+                yshift=10,
+                font=dict(size=12, family='Arial, sans-serif')
+            )
+    
+    fig.update_layout(
+        title=dict(
+            text=title,
+            x=0.5,
+            y=0.95,
+            xanchor='center',
+            yanchor='top',
+            font=dict(size=28, color='#1f77b4', family='Arial, sans-serif')
+        ),
+        xaxis=dict(
+            title='',
+            tickangle=45,
+            tickfont=dict(size=14, family='Arial, sans-serif'),
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='lightgray'
+        ),
+        yaxis=dict(
+            title=dict(text='Value', font=dict(size=16, family='Arial, sans-serif')),
+            tickfont=dict(size=14, family='Arial, sans-serif'),
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='lightgray',
+            zeroline=True,
+            zerolinewidth=2,
+            zerolinecolor='black'
+        ),
+        height=450,  # Increased height
+        margin=dict(l=20, r=20, t=100, b=100),  # Increased margins
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(size=14, family='Arial, sans-serif')
+        )
+    )
+    return fig
+
+# Function to add spacing between visualizations
+def add_vertical_space():
+    st.markdown("<div style='margin: 1em 0em;'></div>", unsafe_allow_html=True)
+
+# Function to create container with proper spacing
+def create_visualization_container():
+    return st.container()
 
 # sidebar
 with st.sidebar:
@@ -77,8 +306,19 @@ if selected == 'Disease Prediction':
         prediction, prob = disease_model.predict(X)
         st.write(f'## Disease: {prediction} with {prob*100:.2f}% probability')
 
+        with create_visualization_container():
+            # First row of visualizations
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                st.plotly_chart(create_gauge_chart(prob*100, "Prediction Probability"), use_container_width=True)
+                add_chart_explanation("gauge", [])
+            with col2:
+                st.plotly_chart(create_pie_chart([1]*len(symptoms), symptoms, "Symptoms Distribution"), use_container_width=True)
+                add_chart_explanation("pie", [])
+            
+            add_vertical_space()
 
-        tab1, tab2= st.tabs(["Description", "Precautions"])
+        tab1, tab2, tab3 = st.tabs(["Description", "Precautions", "Visualization"])
 
         with tab1:
             st.write(disease_model.describe_predicted_disease())
@@ -87,6 +327,10 @@ if selected == 'Disease Prediction':
             precautions = disease_model.predicted_disease_precautions()
             for i in range(4):
                 st.write(f'{i+1}. {precautions[i]}')
+                
+        with tab3:
+            with create_visualization_container():
+                st.plotly_chart(create_pie_chart([1]*len(symptoms), symptoms, "Symptoms Distribution"), use_container_width=True)
 
 
 
@@ -128,11 +372,32 @@ if selected == 'Diabetes Prediction':  # pagetitle
 
     # button
     if st.button("Diabetes test result"):
-        diabetes_prediction=[[]]
+        # Initialize variables
+        risk_score = 0
+        metrics = ['Glucose', 'BMI', 'Blood Pressure']
+        values = [Glucose, BMI, BloodPressure]
+        normal_ranges = [(70, 100), (18.5, 24.9), (90, 120)]  # Normal ranges for each metric
+        
+        # Make prediction
         diabetes_prediction = diabetes_model.predict(
             [[Pregnancies, Glucose, BloodPressure, SkinThickness, Insulin, BMI, DiabetesPedigreefunction, Age]])
+        
+        # Update risk score after prediction
+        risk_score = diabetes_prediction[0] * 100
 
-        # after the prediction is done if the value in the list at index is 0 is 1 then the person is diabetic
+        # Create visualizations
+        with create_visualization_container():
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.plotly_chart(create_gauge_chart(risk_score, "Diabetes Risk Score"), use_container_width=True)
+            
+            with col2:
+                st.plotly_chart(create_bar_chart(metrics, values, "Key Health Metrics", normal_ranges), use_container_width=True)
+            
+            add_vertical_space()
+
+        # Display prediction result
         if diabetes_prediction[0] == 1:
             diabetes_dig = "we are really sorry to say but it seems like you are Diabetic."
             image = Image.open('positive.jpg')
@@ -249,11 +514,29 @@ if selected == 'Heart disease Prediction':
 
     # button
     if st.button("Heart test result"):
-        heart_prediction=[[]]
-        # change the parameters according to the model
+        # Initialize variables
+        risk_score = 0
+        metrics = ['Blood Pressure', 'Cholesterol', 'Max Heart Rate']
+        values = [trestbps, chol, thalach]
+        normal_ranges = [(90, 120), (125, 200), (60, 100)]  # Normal ranges for each metric
         
-        # b=np.array(a, dtype=float)
+        # Make prediction
         heart_prediction = heart_model.predict([[age, sex, cp, trestbps, chol, fbs, restecg, thalach, exang, oldpeak, slope, ca, thal]])
+        
+        # Update risk score after prediction
+        risk_score = heart_prediction[0] * 100
+
+        # Create visualizations
+        with create_visualization_container():
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.plotly_chart(create_gauge_chart(risk_score, "Heart Disease Risk Score"), use_container_width=True)
+            
+            with col2:
+                st.plotly_chart(create_bar_chart(metrics, values, "Key Cardiac Metrics", normal_ranges), use_container_width=True)
+            
+            add_vertical_space()
 
         if heart_prediction[0] == 1:
             heart_dig = 'we are really sorry to say but it seems like you have Heart Disease.'
@@ -336,10 +619,30 @@ if selected == 'Parkison Prediction':
     
     # button
     if st.button("Parkinson test result"):
-        parkinson_prediction=[[]]
-        # change the parameters according to the model
-        parkinson_prediction = parkinson_model.predict([[MDVP, MDVPFIZ, MDVPFLO, MDVPJITTER, MDVPJitterAbs, MDVPRAP, MDVPPPQ, JitterDDP, MDVPShimmer,MDVPShimmer_dB, Shimmer_APQ3, ShimmerAPQ5, MDVP_APQ, ShimmerDDA, NHR, HNR,  RPDE, DFA, spread1, spread2, D2, PPE]])
+        # Initialize variables
+        risk_score = 0
+        metrics = ['Jitter', 'Shimmer', 'NHR', 'HNR']
+        values = [MDVPJITTER, MDVPShimmer, NHR, HNR]
+        
+        # Make prediction
+        parkinson_prediction = parkinson_model.predict([[MDVP, MDVPFIZ, MDVPFLO, MDVPJITTER, MDVPJitterAbs, MDVPRAP, MDVPPPQ, JitterDDP, MDVPShimmer,MDVPShimmer_dB, Shimmer_APQ3, ShimmerAPQ5, MDVP_APQ, ShimmerDDA, NHR, HNR, RPDE, DFA, spread1, spread2, D2, PPE]])
+        
+        # Update risk score after prediction
+        risk_score = parkinson_prediction[0] * 100
 
+        # Create visualizations
+        with create_visualization_container():
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.plotly_chart(create_gauge_chart(risk_score, "Parkinson's Disease Risk Score"), use_container_width=True)
+            
+            with col2:
+                st.plotly_chart(create_bar_chart(metrics, values, "Key Voice Metrics"), use_container_width=True)
+            
+            add_vertical_space()
+
+        # Display prediction result
         if parkinson_prediction[0] == 1:
             parkinson_dig = 'we are really sorry to say but it seems like you have Parkinson disease'
             image = Image.open('positive.jpg')
@@ -409,7 +712,15 @@ if selected == 'Lung Cancer Prediction':
 
     # Button
     if st.button("Predict Lung Cancer"):
-        # Create a DataFrame with user inputs
+        # Initialize variables
+        risk_score = 0
+        risk_factors = ['Smoking', 'Alcohol', 'Chronic Disease', 'Chest Pain']
+        values = [2 if smoking == 'YES' else 1, 
+                 2 if alcohol_consuming == 'YES' else 1,
+                 2 if chronic_disease == 'YES' else 1,
+                 2 if chest_pain == 'YES' else 1]
+        
+        # Create DataFrame and make prediction
         user_data = pd.DataFrame({
             'GENDER': [gender],
             'AGE': [age],
@@ -430,18 +741,28 @@ if selected == 'Lung Cancer Prediction':
 
         # Map string values to numeric
         user_data.replace({'NO': 1, 'YES': 2}, inplace=True)
-
-        # Strip leading and trailing whitespaces from column names
         user_data.columns = user_data.columns.str.strip()
-
-        # Convert columns to numeric where necessary
         numeric_columns = ['AGE', 'FATIGUE', 'ALLERGY', 'ALCOHOLCONSUMING', 'COUGHING', 'SHORTNESSOFBREATH']
         user_data[numeric_columns] = user_data[numeric_columns].apply(pd.to_numeric, errors='coerce')
 
-        # Perform prediction
         cancer_prediction = lung_cancer_model.predict(user_data)
+        
+        # Update risk score after prediction
+        risk_score = 100 if cancer_prediction[0] == 'YES' else 0
 
-        # Display result
+        # Create visualizations
+        with create_visualization_container():
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.plotly_chart(create_gauge_chart(risk_score, "Lung Cancer Risk Score"), use_container_width=True)
+            
+            with col2:
+                st.plotly_chart(create_pie_chart(values, risk_factors, "Risk Factors Distribution"), use_container_width=True)
+            
+            add_vertical_space()
+
+        # Display prediction result
         if cancer_prediction[0] == 'YES':
             cancer_result = "The model predicts that there is a risk of Lung Cancer."
             image = Image.open('positive.jpg')
@@ -500,18 +821,39 @@ if selected == 'Liver prediction':  # pagetitle
 
     # button
     if st.button("Liver test result"):
-        liver_prediction=[[]]
+        # Initialize variables
+        risk_score = 0
+        metrics = ['Total Bilirubin', 'Direct Bilirubin', 'Albumin']
+        values = [Total_Bilirubin, Direct_Bilirubin, Albumin]
+        normal_ranges = [(0.3, 1.2), (0.1, 0.3), (3.5, 5.5)]  # Normal ranges for each metric
+        
+        # Make prediction
         liver_prediction = liver_model.predict([[Sex,age,Total_Bilirubin,Direct_Bilirubin,Alkaline_Phosphotase,Alamine_Aminotransferase,Aspartate_Aminotransferase,Total_Protiens,Albumin,Albumin_and_Globulin_Ratio]])
+        
+        # Update risk score after prediction
+        risk_score = liver_prediction[0] * 100
 
-        # after the prediction is done if the value in the list at index is 0 is 1 then the person is diabetic
+        # Create visualizations
+        with create_visualization_container():
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.plotly_chart(create_gauge_chart(risk_score, "Liver Disease Risk Score"), use_container_width=True)
+            
+            with col2:
+                st.plotly_chart(create_bar_chart(metrics, values, "Key Liver Function Tests", normal_ranges), use_container_width=True)
+            
+            add_vertical_space()
+
+        # Display prediction result
         if liver_prediction[0] == 1:
+            liver_dig = "we are really sorry to say but it seems like you have liver disease."
             image = Image.open('positive.jpg')
             st.image(image, caption='')
-            liver_dig = "we are really sorry to say but it seems like you have liver disease."
         else:
+            liver_dig = "Congratulation , You don't have liver disease."
             image = Image.open('negative.jpg')
             st.image(image, caption='')
-            liver_dig = "Congratulation , You don't have liver disease."
         st.success(name+' , ' + liver_dig)
 
 
@@ -565,25 +907,44 @@ if selected == 'Hepatitis prediction':
 
     # Button
     if st.button("Predict Hepatitis"):
-        # Create a DataFrame with user inputs
-        user_data = pd.DataFrame({
+        # Initialize variables
+        risk_score = 0
+        metrics = ['Total Bilirubin', 'Direct Bilirubin', 'Albumin']
+        values = [total_bilirubin, direct_bilirubin, albumin]
+        
+        # Create DataFrame for prediction
+        user_input_hepatitis = pd.DataFrame({
             'Age': [age],
             'Sex': [sex],
-            'ALB': [total_bilirubin],  # Correct the feature name
-            'ALP': [direct_bilirubin],  # Correct the feature name
-            'ALT': [alkaline_phosphatase],  # Correct the feature name
+            'ALB': [total_bilirubin],
+            'ALP': [direct_bilirubin],
+            'ALT': [alkaline_phosphatase],
             'AST': [alamine_aminotransferase],
-            'BIL': [aspartate_aminotransferase],  # Correct the feature name
-            'CHE': [total_proteins],  # Correct the feature name
-            'CHOL': [albumin],  # Correct the feature name
-            'CREA': [albumin_and_globulin_ratio],  # Correct the feature name
-            'GGT': [your_ggt_value],  # Replace 'your_ggt_value' with the actual value
-            'PROT': [your_prot_value]  # Replace 'your_prot_value' with the actual value
+            'BIL': [aspartate_aminotransferase],
+            'CHE': [total_proteins],
+            'CHOL': [albumin],
+            'CREA': [albumin_and_globulin_ratio],
+            'GGT': [your_ggt_value],
+            'PROT': [your_prot_value]
         })
 
-        # Perform prediction
-        hepatitis_prediction = hepatitis_model.predict(user_data)
-        # Display result
+        # Make prediction
+        hepatitis_prediction = hepatitis_model.predict(user_input_hepatitis)
+        
+        # Create visualizations
+        with create_visualization_container():
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                risk_score = 100 if hepatitis_prediction[0] == 1 else 0
+                st.plotly_chart(create_gauge_chart(risk_score, "Hepatitis Risk Score"), use_container_width=True)
+            
+            with col2:
+                st.plotly_chart(create_bar_chart(metrics, values, "Key Liver Function Tests"), use_container_width=True)
+            
+            add_vertical_space()
+
+        # Display prediction result
         if hepatitis_prediction[0] == 1:
             hepatitis_result = "We are really sorry to say but it seems like you have Hepatitis."
             image = Image.open('positive.jpg')
@@ -603,75 +964,6 @@ if selected == 'Hepatitis prediction':
 
 
 
-
-
-# jaundice prediction page
-if selected == 'Jaundice prediction':  # pagetitle
-    st.title("Jaundice disease prediction")
-    image = Image.open('j.jpg')
-    st.image(image, caption='Jaundice disease prediction')
-    # columns
-    # no inputs from the user
-# st.write(info.astype(int).info())
-    name = st.text_input("Name:")
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        age = st.number_input("Entre your age   ") # 2 
-    with col2:
-        Sex=0
-        display = ("male", "female")
-        options = list(range(len(display)))
-        value = st.selectbox("Gender", options, format_func=lambda x: display[x])
-        if value == "male":
-            Sex = 0
-        elif value == "female":
-            Sex = 1
-    with col3:
-        Total_Bilirubin = st.number_input("Entre your Total_Bilirubin") # 3
-    with col1:
-        Direct_Bilirubin = st.number_input("Entre your Direct_Bilirubin")# 4
-
-    with col2:
-        Alkaline_Phosphotase = st.number_input("Entre your Alkaline_Phosphotase") # 5
-    with col3:
-        Alamine_Aminotransferase = st.number_input("Entre your Alamine_Aminotransferase") # 6
-    with col1:
-        Total_Protiens = st.number_input("Entre your Total_Protiens")# 8
-    with col2:
-        Albumin = st.number_input("Entre your Albumin") # 9 
-    # code for prediction
-    jaundice_dig = ''
-
-    # button
-    if st.button("Jaundice test result"):
-        jaundice_prediction=[[]]
-        jaundice_prediction = jaundice_model.predict([[age,Sex,Total_Bilirubin,Direct_Bilirubin,Alkaline_Phosphotase,Alamine_Aminotransferase,Total_Protiens,Albumin]])
-
-        # after the prediction is done if the value in the list at index is 0 is 1 then the person is diabetic
-        if jaundice_prediction[0] == 1:
-            image = Image.open('positive.jpg')
-            st.image(image, caption='')
-            jaundice_dig = "we are really sorry to say but it seems like you have Jaundice."
-        else:
-            image = Image.open('negative.jpg')
-            st.image(image, caption='')
-            jaundice_dig = "Congratulation , You don't have Jaundice."
-        st.success(name+' , ' + jaundice_dig)
-
-
-
-
-
-
-
-
-
-
-
-
-from sklearn.preprocessing import LabelEncoder
-import joblib
 
 
 # Chronic Kidney Disease Prediction Page
@@ -754,8 +1046,13 @@ if selected == 'Chronic Kidney prediction':
 
     # Button
     if st.button("Predict Chronic Kidney Disease"):
-        # Create a DataFrame with user inputs
-        user_input = pd.DataFrame({
+        # Initialize variables
+        risk_score = 0
+        metrics = ['Blood Pressure', 'Blood Glucose', 'Hemoglobin']
+        values = [bp, bgr, hemo]
+        
+        # Create DataFrame for prediction
+        user_input_kidney = pd.DataFrame({
             'age': [age],
             'bp': [bp],
             'sg': [sg],
@@ -781,10 +1078,32 @@ if selected == 'Chronic Kidney prediction':
             'pe': [pe],
             'ane': [ane]
         })
+        
+        # Make prediction
+        kidney_prediction = chronic_disease_model.predict(user_input_kidney)
+        
+        # Update risk score after prediction
+        risk_score = kidney_prediction[0] * 100
 
-        # Perform prediction
-        kidney_prediction = chronic_disease_model.predict(user_input)
-        # Display result
+        # Create visualizations
+        with create_visualization_container():
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                st.plotly_chart(create_gauge_chart(risk_score, "Chronic Kidney Disease Risk Score"), use_container_width=True)
+                add_chart_explanation("gauge", [])
+            with col2:
+                st.plotly_chart(create_bar_chart(metrics, values, "Key Kidney Function Metrics"), use_container_width=True)
+                add_chart_explanation("bar", metrics)
+            
+            add_vertical_space()
+
+        # Additional visualization for blood composition
+        blood_metrics = ['White Blood Cells', 'Red Blood Cells', 'Packed Cell Volume']
+        blood_values = [wc/1000, rc, pcv] # Normalize WBC count
+        st.plotly_chart(create_bar_chart(blood_metrics, blood_values, "Blood Composition Metrics"), use_container_width=True)
+        add_chart_explanation("bar", blood_metrics)
+
+        # Display prediction result
         if kidney_prediction[0] == 1:
             image = Image.open('positive.jpg')
             st.image(image, caption='')
@@ -862,8 +1181,13 @@ if selected == 'Breast Cancer Prediction':
 
     # Button
     if st.button("Predict Breast Cancer"):
-        # Create a DataFrame with user inputs
-        user_input = pd.DataFrame({
+        # Initialize variables
+        risk_score = 0
+        metrics = ['Radius', 'Texture', 'Perimeter', 'Area']
+        values = [radius_mean, texture_mean, perimeter_mean, area_mean]
+        
+        # Create DataFrame for prediction
+        user_input_breast = pd.DataFrame({
             'radius_mean': [radius_mean],
             'texture_mean': [texture_mean],
             'perimeter_mean': [perimeter_mean],
@@ -871,7 +1195,7 @@ if selected == 'Breast Cancer Prediction':
             'smoothness_mean': [smoothness_mean],
             'compactness_mean': [compactness_mean],
             'concavity_mean': [concavity_mean],
-            'concave points_mean': [concave_points_mean],  # Update this line
+            'concave points_mean': [concave_points_mean],
             'symmetry_mean': [symmetry_mean],
             'fractal_dimension_mean': [fractal_dimension_mean],
             'radius_se': [radius_se],
@@ -881,7 +1205,7 @@ if selected == 'Breast Cancer Prediction':
             'smoothness_se': [smoothness_se],
             'compactness_se': [compactness_se],
             'concavity_se': [concavity_se],
-            'concave points_se': [concave_points_se],  # Update this line
+            'concave points_se': [concave_points_se],
             'symmetry_se': [symmetry_se],
             'fractal_dimension_se': [fractal_dimension_se],
             'radius_worst': [radius_worst],
@@ -891,14 +1215,35 @@ if selected == 'Breast Cancer Prediction':
             'smoothness_worst': [smoothness_worst],
             'compactness_worst': [compactness_worst],
             'concavity_worst': [concavity_worst],
-            'concave points_worst': [concave_points_worst],  # Update this line
+            'concave points_worst': [concave_points_worst],
             'symmetry_worst': [symmetry_worst],
-            'fractal_dimension_worst': [fractal_dimension_worst],
+            'fractal_dimension_worst': [fractal_dimension_worst]
         })
+        
+        # Make prediction
+        breast_cancer_prediction = breast_cancer_model.predict(user_input_breast)
+        
+        # Update risk score after prediction
+        risk_score = breast_cancer_prediction[0] * 100
 
-        # Perform prediction
-        breast_cancer_prediction = breast_cancer_model.predict(user_input)
-        # Display result
+        # Create visualizations
+        with create_visualization_container():
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.plotly_chart(create_gauge_chart(risk_score, "Breast Cancer Risk Score"), use_container_width=True)
+            
+            with col2:
+                st.plotly_chart(create_bar_chart(metrics, values, "Key Tumor Characteristics"), use_container_width=True)
+            
+            add_vertical_space()
+
+        # Additional visualization for cell characteristics
+        cell_metrics = ['Smoothness', 'Compactness', 'Concavity', 'Symmetry']
+        cell_values = [smoothness_mean, compactness_mean, concavity_mean, symmetry_mean]
+        st.plotly_chart(create_bar_chart(cell_metrics, cell_values, "Cell Characteristics"), use_container_width=True)
+
+        # Display prediction result
         if breast_cancer_prediction[0] == 1:
             image = Image.open('positive.jpg')
             st.image(image, caption='')
